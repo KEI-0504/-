@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- 月ヘッダ + 切り替え -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="h5 mb-0">{{ month_str }}</h2>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm"
+       href="{{ url_for('dashboard', y=prev_year, m=prev_month) }}">&laquo; 前の月</a>
+    <a class="btn btn-outline-secondary btn-sm"
+       href="{{ url_for('dashboard') }}">今月</a>
+    <a class="btn btn-outline-secondary btn-sm"
+       href="{{ url_for('dashboard', y=next_year, m=next_month) }}">次の月 &raquo;</a>
+  </div>
+</div>
+
+<!-- サマリカード -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <div class="text-muted">今月の収入</div>
+      <div class="fs-4 fw-semibold">¥{{ '{:,.0f}'.format(income) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <div class="text-muted">今月の支出</div>
+      <div class="fs-4 fw-semibold">¥{{ '{:,.0f}'.format(expense) }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card p-3">
+      <div class="text-muted">今月の残高</div>
+      <div class="fs-4 fw-semibold">¥{{ '{:,.0f}'.format(balance) }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- カレンダー（日別支出のヒートマップ＋数値） -->
+<div class="card p-3 mb-4">
+  <h3 class="h6 mb-3">日別カレンダー（支出）</h3>
+  <div class="table-responsive">
+    <table class="table align-middle calendar-table">
+      <thead>
+        <tr class="text-muted">
+          <th class="text-center">日</th>
+          <th class="text-center">月</th>
+          <th class="text-center">火</th>
+          <th class="text-center">水</th>
+          <th class="text-center">木</th>
+          <th class="text-center">金</th>
+          <th class="text-center">土</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for week in weeks %}
+        <tr>
+          {% for d in week %}
+          {% if d == 0 %}
+            <td></td>
+          {% else %}
+            {% set exp = daily_expense[d-1] %}
+            {% set inc = daily_income[d-1] %}
+            {# ヒート段階（閾値はお好みで調整） #}
+            {% set heat = 0 %}
+            {% if exp >= 20000 %}{% set heat = 5 %}
+            {% elif exp >= 10000 %}{% set heat = 4 %}
+            {% elif exp >= 5000 %}{% set heat = 3 %}
+            {% elif exp >= 2000 %}{% set heat = 2 %}
+            {% elif exp >= 1 %}{% set heat = 1 %}
+            {% endif %}
+            <td>
+              <div class="daycell heat-{{ heat }}">
+                <div class="d-flex justify-content-between small">
+                  <span class="fw-semibold">{{ d }}</span>
+                  <span class="text-muted">¥{{ '{:,.0f}'.format(exp) }}</span>
+                </div>
+                {% if inc > 0 %}
+                  <div class="small text-success">+¥{{ '{:,.0f}'.format(inc) }}</div>
+                {% endif %}
+              </div>
+            </td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="small text-muted">
+    <span class="legend-box heat-1"></span>少額
+    <span class="legend-box heat-3 ms-2"></span>中
+    <span class="legend-box heat-5 ms-2"></span>多い
+  </div>
+</div>
+
+<!-- 円グラフ（カテゴリ別支出） -->
+<div class="card p-3 mb-4">
+  <h3 class="h6 mb-3">カテゴリ別 支出（円グラフ）</h3>
+  {% if cat_values and cat_values|sum > 0 %}
+    <div class="d-flex justify-content-center">
+      <div style="width:240px; max-width:100%; height:220px; max-height:220px;">
+        <canvas id="pieByCategory"></canvas>
+      </div>
+    </div>
+  {% else %}
+    <div class="text-muted">この月の支出データがありません。</div>
+  {% endif %}
+</div>
+
+<!-- 棒グラフ（日別支出） -->
+<div class="card p-3 mb-4">
+  <h3 class="h6 mb-3">日別 支出（棒グラフ）</h3>
+  {% if day_values and day_values|sum > 0 %}
+    <div style="height:260px;">
+      <canvas id="barByDay"></canvas>
+    </div>
+  {% else %}
+    <div class="text-muted">この月の支出データがありません。</div>
+  {% endif %}
+</div>
+
+<!-- カテゴリ表 -->
+<h3 class="h6">カテゴリ別 支出（表）</h3>
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table">
+      <thead><tr><th>カテゴリ</th><th class="text-end">金額</th></tr></thead>
+      <tbody>
+        {% for name, total in cat_rows %}
+          <tr>
+            <td>{{ name }}</td>
+            <td class="text-end">¥{{ '{:,.0f}'.format(total) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="2" class="text-center text-muted">この月の支出はまだありません。</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Chart.js スクリプト（サイズ控えめ & レスポンシブ） -->
+<script>
+  const catLabels = {{ cat_labels|tojson }};
+  const catValues = {{ cat_values|tojson }};
+  const dayLabels = {{ day_labels|tojson }};
+  const dayValues = {{ day_values|tojson }};
+
+  const pastel = ['#A7D7C5','#F7D9A8','#F6AEC1','#C9C8FF','#F9C5D5','#B8E1FF','#D7E3FC','#FFE2B8','#C7F9CC','#FFD6A5'];
+
+  const pieEl = document.getElementById('pieByCategory');
+  if (pieEl && catValues.length && catValues.reduce((a,b)=>a+b,0) > 0) {
+    new Chart(pieEl, {
+      type: 'pie',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catValues,
+          backgroundColor: catLabels.map((_, i) => pastel[i % pastel.length]),
+          borderWidth: 1, borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 12 } } },
+          tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ¥${(ctx.parsed||0).toLocaleString()}` } }
+        }
+      }
+    });
+  }
+
+  const barEl = document.getElementById('barByDay');
+  if (barEl && dayValues.length && dayValues.reduce((a,b)=>a+b,0) > 0) {
+    new Chart(barEl, {
+      type: 'bar',
+      data: {
+        labels: dayLabels,
+        datasets: [{ label: '支出', data: dayValues, backgroundColor: '#A7D7C5' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: (v) => '¥' + Number(v).toLocaleString() } }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => '¥' + (ctx.parsed.y||0).toLocaleString() } }
+        }
+      }
+    });
+  }
+</script>
+
+<!-- カレンダー用の軽いスタイル -->
+<style>
+  .calendar-table td { height: 92px; vertical-align: top; }
+  .daycell { border: 1px solid #E5E7EB; border-radius: 12px; padding: 6px; background: #fff; }
+  /* ヒート（支出大ほど濃く）※優しい緑トーン */
+  .heat-0 { background: #ffffff; }
+  .heat-1 { background: #F1F8F6; }
+  .heat-2 { background: #E3F1EC; }
+  .heat-3 { background: #D3E9E2; }
+  .heat-4 { background: #C4E1D9; }
+  .heat-5 { background: #B4D9CF; }
+  .legend-box { display:inline-block; width:14px; height:14px; margin-right:4px; border-radius:4px; vertical-align:middle; }
+</style>
+
+{% endblock %}

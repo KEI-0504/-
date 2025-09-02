@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>ユーザー登録</h2>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <p>{{ form.username.label }} {{ form.username(size=32) }}</p>
+  <p>{{ form.email.label }} {{ form.email(size=32) }}</p>
+  <p>{{ form.password.label }} {{ form.password(size=32) }}</p>
+  <p>{{ form.confirm.label }} {{ form.confirm(size=32) }}</p>
+  <p>{{ form.submit() }}</p>
+</form>
+<p><a href="{{ url_for('login') }}">ログインはこちら</a></p>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card p-3">
+      <h2 class="h5 mb-3">取引の登録</h2>
+      <form method="post" action="{{ url_for('transactions') }}">
+        {{ form.hidden_tag() }}
+        <div class="mb-3">
+          {{ form.date.label(class="form-label") }}
+          {{ form.date(class="form-control") }}
+        </div>
+        <div class="mb-3">
+          {{ form.description.label(class="form-label") }}
+          {{ form.description(class="form-control", placeholder="例：スーパーで食材") }}
+        </div>
+        <div class="mb-3">
+          {{ form.amount.label(class="form-label") }}
+          {{ form.amount(class="form-control", step="1", placeholder="例：3500") }}
+        </div>
+        <div class="mb-3">
+          {{ form.kind.label(class="form-label") }}
+          {{ form.kind(class="form-select") }}
+        </div>
+        <div class="mb-3">
+          {{ form.category_id.label(class="form-label") }}
+          {{ form.category_id(class="form-select") }}
+        </div>
+        {{ form.submit(class="btn btn-primary w-100") }}
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card p-3">
+      <h2 class="h5 mb-3">取引一覧</h2>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>日付</th><th>内容</th><th class="text-end">金額</th>
+              <th>種類</th><th>カテゴリ</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in items %}
+            <tr>
+              <td>{{ t.date.strftime('%Y-%m-%d') }}</td>
+              <td>{{ t.description }}</td>
+              <td class="text-end">¥{{ '{:,.0f}'.format(t.amount) }}</td>
+              <td>
+                {% if t.kind == 'income' %}
+                  <span class="badge badge-income">収入</span>
+                {% else %}
+                  <span class="badge badge-expense">支出</span>
+                {% endif %}
+              </td>
+              <td>{{ t.category.name if t.category else '未分類' }}</td>
+              <td>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="{{ url_for('edit_transaction', tx_id=t.id) }}">編集</a>
+                <form method="post" action="{{ url_for('delete_transaction', tx_id=t.id) }}"
+                      style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"
+                          onclick="return confirm('削除しますか？');">削除</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">データがありません</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
