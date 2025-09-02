@@ -18,19 +18,18 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 # ★ DBは環境変数 DATABASE_URL があればそれを採用（RenderのPostgres）
 import os
 # ...
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    # 旧 'postgres://' を psycopg3 用に
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
-    # 必要なら SSL 付与（RenderのURLに既に付いていれば不要）
-    if "sslmode=" not in db_url:
-        sep = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{sep}sslmode=require"
-    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-else:
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///kakeibo.db"
+import os
+# 既存:
+# app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///kakeibo.db"
 
+# Render 環境の DATABASE_URL を優先し、psycopg(v3) 用に置換
+db_url = os.getenv("DATABASE_URL", "sqlite:///kakeibo.db")
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif db_url.startswith("postgresql://") and "+psycopg" not in db_url:
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
@@ -239,4 +238,5 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         seed_categories()
+
     app.run(debug=True)
