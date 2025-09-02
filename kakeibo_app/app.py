@@ -16,14 +16,21 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
 # ★ DBは環境変数 DATABASE_URL があればそれを採用（RenderのPostgres）
+import os
+# ...
 db_url = os.getenv("DATABASE_URL")
 if db_url:
-    # Render等の一部環境は 'postgres://' で渡すので 'postgresql://' に置換
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
+    # 旧 'postgres://' を psycopg3 用に
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+    # 必要なら SSL 付与（RenderのURLに既に付いていれば不要）
+    if "sslmode=" not in db_url:
+        sep = "&" if "?" in db_url else "?"
+        db_url = f"{db_url}{sep}sslmode=require"
     app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 else:
-    # ローカルはこれまで通りsqlite
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///kakeibo.db"
+
 
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
