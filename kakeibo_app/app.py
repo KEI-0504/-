@@ -8,7 +8,6 @@ from models import db, Category, Transaction, seed_categories, User
 from forms import TransactionForm, RegisterForm, LoginForm
 from collections import defaultdict
 import calendar
-from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -17,9 +16,6 @@ app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
 # ★ DBは環境変数 DATABASE_URL があればそれを採用（RenderのPostgres）
 import os
-# ...
-import os
-# 既存:
 # app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///kakeibo.db"
 
 # Render 環境の DATABASE_URL を優先し、psycopg(v3) 用に置換
@@ -34,6 +30,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 csrf = CSRFProtect(app)
+
+with app.app_context():
+    db.create_all()
+    seed_categories()
 
 # --- Flask-Login 設定 ---
 login_manager = LoginManager(app)
@@ -235,8 +235,5 @@ def dashboard():
     )
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        seed_categories()
-
     app.run(debug=True)
+
