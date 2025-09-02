@@ -9,4 +9,6 @@ gunicorn==22.0.0
 python-dotenv==1.0.1
 
 # ここがポイント：psycopg3 を使う
-psycopg[binary]==3.2.1
+psycopg[binary]>=3.2.2,<3.3
+
+
